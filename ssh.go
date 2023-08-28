@@ -7,9 +7,11 @@ import (
 )
 
 const (
-	HUAWEI = "huawei"
-	H3C    = "h3c"
-	CISCO  = "cisco"
+	HUAWEI  = "huawei"
+	H3C     = "h3c"
+	CISCO   = "cisco"
+	RUIJIE  = "ruijie"
+	EXTREME = "extreme"
 )
 
 var IsLogDebug = true

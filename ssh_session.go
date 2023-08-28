@@ -18,6 +18,7 @@ type SSHSession struct {
 	out         chan string
 	brand       string
 	lastUseTime time.Time
+	sshClient   *ssh.Client
 }
 
 /**
@@ -70,6 +71,7 @@ func (this *SSHSession) UpdateLastUseTime() {
  */
 func (this *SSHSession) createConnection(user, password, ipPort string) error {
 	LogDebug("<Test> Begin connect")
+
 	client, err := ssh.Dial("tcp", ipPort, &ssh.ClientConfig{
 		User: user,
 		Auth: []ssh.AuthMethod{
@@ -83,20 +85,25 @@ func (this *SSHSession) createConnection(user, password, ipPort string) error {
 			Ciphers: []string{"aes128-ctr", "aes192-ctr", "aes256-ctr", "aes128-gcm@openssh.com",
 				"arcfour256", "arcfour128", "aes128-cbc", "aes256-cbc", "3des-cbc", "des-cbc",
 			},
+			KeyExchanges: []string{"diffie-hellman-group1-sha1", "diffie-hellman-group14-sha256", "diffie-hellman-group-exchange-sha256", "diffie-hellman-group14-sha1"},
 		},
 	})
+
 	if err != nil {
 		LogError("SSH Dial err:%s", err.Error())
 		return err
 	}
 	LogDebug("<Test> End connect")
 	LogDebug("<Test> Begin new session")
+
 	session, err := client.NewSession()
+
 	if err != nil {
 		LogError("NewSession err:%s", err.Error())
 		return err
 	}
 	this.session = session
+	this.sshClient = client
 	LogDebug("<Test> End new session")
 	return nil
 }
@@ -161,12 +168,15 @@ func (this *SSHSession) muxShell() error {
 		)
 		for {
 			n, err := r.Read(buf[t:])
+
 			if err != nil {
 				LogDebug("Reader read err:%s", err.Error())
 				return
 			}
 			t += n
+
 			out <- string(buf[:t])
+
 			t = 0
 		}
 	}()
@@ -239,7 +249,14 @@ func (this *SSHSession) GetSSHBrand() string {
 	} else if strings.Contains(result, CISCO) {
 		LogDebug("The switch brand is <cisco>.")
 		this.brand = CISCO
+	} else if strings.Contains(result, RUIJIE) {
+		LogDebug("The switch brand is <ruijie>.")
+		this.brand = RUIJIE
+	} else if strings.Contains(result, EXTREME) {
+		LogDebug("The switch brand is <extreme>.")
+		this.brand = EXTREME
 	}
+
 	return this.brand
 }
 
@@ -254,10 +271,14 @@ func (this *SSHSession) Close() {
 		}
 	}()
 	if err := this.session.Close(); err != nil {
+
 		LogError("Close session err:%s", err.Error())
+
 	}
+
 	close(this.in)
 	close(this.out)
+	this.sshClient.Close()
 }
 
 /**
